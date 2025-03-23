@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音声文字起こしツール</title>
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --primary-dark: #3a5a8c;
+            --secondary-color: #6c757d;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --success-color: #28a745;
+            --info-color: #17a2b8;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--dark-color);
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            position: relative;
+        }
+
+        h1, h2, h3 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid var(--light-color);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+
+        .upload-section, .prompt-section, .result-section, .processing-section {
+            margin-bottom: 30px;
+        }
+
+        .drop-area {
+            border: 3px dashed #ccc;
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+
+        .drop-area:hover {
+            border-color: var(--primary-color);
+            background-color: var(--light-color);
+        }
+
+        .drop-area.active {
+            border-color: var(--success-color);
+            background-color: rgba(40, 167, 69, 0.1);
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        button:disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+        }
+
+        #transcribeBtn {
+            width: 100%;
+            padding: 12px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-top: 15px;
+        }
+
+        .file-info {
+            background-color: var(--light-color);
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            min-height: 200px;
+            white-space: pre-wrap;
+        }
+
+        #promptInput {
+            background-color: #f8f9fa;
+            border-color: #e9ecef;
+        }
+
+        .progress {
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab-btn {
+            padding: 10px 15px;
+            background-color: transparent;
+            color: var(--dark-color);
+            border: none;
+            border-bottom: 3px solid transparent;
+            margin-right: 5px;
+        }
+
+        .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-pane {
+            display: none;
+            margin-bottom: 20px;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        .result-text {
+            background-color: var(--light-color);
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            margin-bottom: 15px;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            margin: 0 5px;
+        }
+
+        .copy-btn {
+            padding: 3px 10px;
+            font-size: 0.8rem;
+            margin-left: 10px;
+            background-color: var(--secondary-color);
+        }
+
+        .copy-btn:hover {
+            background-color: var(--dark-color);
+        }
+
+        /* 設定アイコン - より目立たなくした */
+        .settings-icon {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            width: 30px;
+            height: 30px;
+            background-color: var(--light-color);
+            border: 1px solid #eee;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-size: 0.9rem;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+        
+        .settings-icon:hover {
+            opacity: 1;
+        }
+
+        /* 設定パネル */
+        .settings-panel {
+            position: fixed;
+            bottom: 50px;
+            left: 10px;
+            width: 350px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-content {
+            padding: 15px;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .settings-footer {
+            padding: 10px 15px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .api-key-display {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            user-select: all;
+            cursor: pointer;
+            margin-top: 3px;
+            border: 1px solid #e9ecef;
+        }
+
+        .api-instructions {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+
+        .api-instructions ol {
+            margin-bottom: 0;
+        }
+
+        .api-instructions li {
+            margin-bottom: 8px;
+        }
+
+        .api-instructions li:last-child {
+            margin-bottom: 0;
+        }
+
+        .toggle-instructions {
+            color: var(--primary-color);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .toggle-instructions:hover {
+            text-decoration: underline;
+        }
+
+        .api-notification {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        /* エラーアイコン */
+        .error-icon {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            background-color: var(--light-color);
+            border: 1px solid #ddd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .error-icon.has-errors {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        /* エラーコンソール */
+        .error-console {
+            position: fixed;
+            bottom: 60px;
+            right: 10px;
+            width: 300px;
+            z-index: 1000;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .error-header {
+            background-color: var(--danger-color);
+            color: white;
+            padding: 8px 10px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .error-content {
+            overflow-y: auto;
+            max-height: 250px;
+            padding: 10px;
+        }
+
+        .error-message {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f5c6cb;
+            font-size: 0.9rem;
+        }
+
+        .error-message:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .error-footer {
+            padding: 5px 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        .clear-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            float: right;
+        }
+
+        /* 再実行時のアニメーション */
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .processing-text {
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+            margin-left: 10px;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+        }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(74, 111, 165, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 時間表示用スタイル */
+        .time-info {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+
+        /* 話者のスタイル */
+        .speaker-tag {
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin-right: 5px;
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .action-buttons button {
+                margin: 5px 0;
+            }
+
+            .error-console, .settings-panel {
+                width: 85%;
+                left: 7.5%;
+                right: 7.5%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>音声文字起こしツール</h1>
+        
+        <div id="apiNotification" class="api-notification">
+            <strong>APIキーが必要です</strong>: このツールを使用するには、ElevenLabsとGemini APIキーを設定パネルで設定してください。
+            <a href="#" id="showSettingsBtn">設定を開く</a>
+        </div>
+        
+        <div class="upload-section">
+            <div class="drop-area" id="dropArea">
+                <p>ここに音声ファイルをドロップするか、クリックして選択してください</p>
+                <input type="file" id="fileInput" accept="audio/*" hidden>
+            </div>
+            <div class="file-info" id="fileInfo"></div>
+            <button id="transcribeBtn" disabled>文字起こし開始</button>
+        </div>
+
+        <div class="processing-section" id="processingSection" style="display: none;">
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p id="statusText">処理中...</p>
+            <p id="timeInfo" class="time-info"></p>
+        </div>
+
+        <div class="prompt-section">
+            <h3>出力形式の設定（文字起こしの整理方法）</h3>
+            <textarea id="promptInput" rows="6" placeholder="文字起こしデータを以下の形式で整理してください">【出力形式のルール】
+1. 大きなタイトル → セクションタイトル → セクションごとの300文字程度の説明 → 実際の会話文
+2. セクションは会話の流れや話題に沿って、過度に細かく分けず、適切な粒度で区切る
+3. 説明文は話題のポイントを要約し、内容理解がしやすいようにする
+4. 実際の会話文は発話順に並べ、元のリズムや雰囲気を残す。ただし、「えー」「あー」などの不要な間投詞は削除する。発話内容の意訳・編集は行わない。
+5. 全体を通して読み手が流れを理解しやすいように整える</textarea>
+        </div>
+
+        <div class="result-section" id="resultSection" style="display: none;">
+            <div class="tabs">
+                <button class="tab-btn active" data-target="rawTab">生の文字起こし</button>
+                <button class="tab-btn" data-target="organizedTab">整理済みテキスト</button>
+            </div>
+            
+            <div class="tab-content">
+                <div id="rawTab" class="tab-pane active">
+                    <h3>文字起こし結果 <button id="copyRawBtn" class="copy-btn">コピー</button></h3>
+                    <div id="rawTranscription" class="result-text"></div>
+                </div>
+                
+                <div id="organizedTab" class="tab-pane">
+                    <h3>整理済みテキスト <button id="copyOrganizedBtn" class="copy-btn">コピー</button></h3>
+                    <div id="organizedText" class="result-text"></div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="saveRawBtn">生テキストを保存</button>
+                <button id="saveOrganizedBtn">整理済みテキストを保存</button>
+                <button id="reorganizeBtn">要約を再実行</button>
+                <span id="reorganizeSpinner" style="display: none;"><span class="loader"></span><span class="processing-text">要約処理中...</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定アイコン - より控えめなデザイン -->
+    <div class="settings-icon" id="settingsIcon">⚙️</div>
+
+    <!-- 設定パネル -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <span>API設定</span>
+            <span class="close-btn" id="closeSettingsBtn">×</span>
+        </div>
+        <div class="settings-content">
+            <div class="form-group">
+                <label for="elevenLabsApiKey">ElevenLabs APIキー <a href="#" class="toggle-instructions" data-target="elevenLabsInstructions">(取得方法)</a></label>
+                <div class="api-instructions" id="elevenLabsInstructions" style="display: none;">
+                    <ol style="margin: 10px 0; padding-left: 20px;">
+                        <li>以下のリンクにアクセス：<br><a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">https://elevenlabs.io/app/settings/api-keys</a></li>
+                        <li>アカウントを持っていない場合は新規登録</li>
+                        <li>ログイン後、APIキーが表示されます</li>
+                        <li>「Create New Key」をクリックして新しいキーを生成</li>
+                        <li>生成されたキーをコピーしてこちらに入力</li>
+                    </ol>
+                    <p style="margin: 10px 0; color: #666;">※ 無料プランでは月に約1時間分の文字起こしが可能です</p>
+                </div>
+                <input type="password" id="elevenLabsApiKey" placeholder="ElevenLabs APIキーを入力">
+                <div class="api-key-display" id="elevenLabsKeyDisplay">APIキーが設定されていません</div>
+            </div>
+            <div class="form-group">
+                <label for="geminiApiKey">Gemini APIキー <a href="#" class="toggle-instructions" data-target="geminiInstructions">(取得方法)</a></label>
+                <div class="api-instructions" id="geminiInstructions" style="display: none;">
+                    <ol style="margin: 10px 0; padding-left: 20px;">
+                        <li>以下のリンクにアクセス：<br><a href="https://aistudio.google.com/app/apikey" target="_blank">https://aistudio.google.com/app/apikey</a></li>
+                        <li>Googleアカウントでログイン</li>
+                        <li>「APIキーを取得」をクリック</li>
+                        <li>新しいAPIキーが生成されます</li>
+                        <li>生成されたキーをコピーしてこちらに入力</li>
+                    </ol>
+                    <p style="margin: 10px 0; color: #666;">※ 無料枠では1日1,500リクエストまで使用可能です</p>
+                </div>
+                <input type="password" id="geminiApiKey" placeholder="Gemini APIキーを入力">
+                <div class="api-key-display" id="geminiKeyDisplay">APIキーが設定されていません</div>
+            </div>
+            <div class="form-group">
+                <label for="geminiModel">Geminiモデル</label>
+                <select id="geminiModel">
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash (推奨)</option>
+                    <option value="gemini-2.0-flash-thinking">Gemini 2.0 Flash Thinking</option>
+                    <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite (低コスト)</option>
+                    <option value="gemini-2.0-pro">Gemini 2.0 Pro (高性能)</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (旧バージョン)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (旧バージョン)</option>
+                </select>
+            </div>
+        </div>
+        <div class="settings-footer">
+            <button id="saveSettingsBtn">保存</button>
+        </div>
+    </div>
+
+    <!-- エラーアイコン -->
+    <div class="error-icon" id="errorIcon">🔍</div>
+
+    <!-- エラーコンソール -->
+    <div class="error-console" id="errorConsole">
+        <div class="error-header">
+            <span>エラーログ</span>
+            <span class="close-btn" id="closeErrorBtn">×</span>
+        </div>
+        <div class="error-content" id="errorContent">
+            <div id="errorMessages"></div>
+        </div>
+        <div class="error-footer">
+            <button class="clear-btn" id="clearErrorsBtn">クリア</button>
+        </div>
+    </div>
+
+    <script>
+        // デフォルトのGeminiモデル設定
+        const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+        // デフォルトのAPIキーは空文字列
+        const DEFAULT_ELEVENLABS_API_KEY = '';
+        const DEFAULT_GEMINI_API_KEY = '';
+
+        // 設定の取得
+        let ELEVENLABS_API_KEY = localStorage.getItem('elevenLabsApiKey') || '';
+        let GEMINI_API_KEY = localStorage.getItem('geminiApiKey') || '';
+        let GEMINI_MODEL = localStorage.getItem('geminiModel') || DEFAULT_GEMINI_MODEL;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 要素の取得
+            const dropArea = document.getElementById('dropArea');
+            const fileInput = document.getElementById('fileInput');
+            const fileInfo = document.getElementById('fileInfo');
+            const transcribeBtn = document.getElementById('transcribeBtn');
+            const processingSection = document.getElementById('processingSection');
+            const progressBar = document.getElementById('progressBar');
+            const statusText = document.getElementById('statusText');
+            const timeInfo = document.getElementById('timeInfo');
+            const resultSection = document.getElementById('resultSection');
+            const rawTranscription = document.getElementById('rawTranscription');
+            const organizedText = document.getElementById('organizedText');
+            const promptInput = document.getElementById('promptInput');
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            const copyRawBtn = document.getElementById('copyRawBtn');
+            const copyOrganizedBtn = document.getElementById('copyOrganizedBtn');
+            const saveRawBtn = document.getElementById('saveRawBtn');
+            const saveOrganizedBtn = document.getElementById('saveOrganizedBtn');
+            const reorganizeBtn = document.getElementById('reorganizeBtn');
+            const reorganizeSpinner = document.getElementById('reorganizeSpinner');
+            
+            // 設定関連の要素
+            const settingsIcon = document.getElementById('settingsIcon');
+            const settingsPanel = document.getElementById('settingsPanel');
+
+            // 取得方法のトグル機能
+            document.querySelectorAll('.toggle-instructions').forEach(toggle => {
+                toggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = toggle.getAttribute('data-target');
+                    const instructions = document.getElementById(targetId);
+                    if (instructions.style.display === 'none') {
+                        instructions.style.display = 'block';
+                    } else {
+                        instructions.style.display = 'none';
+                    }
+                });
+            });
+            const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+            const elevenLabsApiKeyInput = document.getElementById('elevenLabsApiKey');
+            const geminiApiKeyInput = document.getElementById('geminiApiKey');
+            const geminiModelSelect = document.getElementById('geminiModel');
+            const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+            const elevenLabsKeyDisplay = document.getElementById('elevenLabsKeyDisplay');
+            const geminiKeyDisplay = document.getElementById('geminiKeyDisplay');
+            const apiNotification = document.getElementById('apiNotification');
+            const showSettingsBtn = document.getElementById('showSettingsBtn');
+            
+            // エラー関連の要素
+            const errorIcon = document.getElementById('errorIcon');
+            const errorConsole = document.getElementById('errorConsole');
+            const closeErrorBtn = document.getElementById('closeErrorBtn');
+            const errorMessages = document.getElementById('errorMessages');
+            const clearErrorsBtn = document.getElementById('clearErrorsBtn');
+
+            // 設定パネルに現在の値を設定
+            elevenLabsApiKeyInput.value = '';
+            geminiApiKeyInput.value = '';
+            geminiModelSelect.value = GEMINI_MODEL;
+            elevenLabsKeyDisplay.textContent = `現在設定されているAPIキー: ${maskApiKey(ELEVENLABS_API_KEY)}`;
+            geminiKeyDisplay.textContent = `現在設定されているAPIキー: ${maskApiKey(GEMINI_API_KEY)}`;
+
+            // APIキーが未設定ならば通知を表示
+            if (!ELEVENLABS_API_KEY || !GEMINI_API_KEY) {
+                apiNotification.style.display = 'block';
+            }
+
+            // 通知の設定ボタンがクリックされたとき
+            showSettingsBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                settingsPanel.style.display = 'flex';
+            });
+
+            // APIキー表示のマスク
+            function maskApiKey(key) {
+                if (!key) return 'なし';
+                if (key === DEFAULT_ELEVENLABS_API_KEY || key === DEFAULT_GEMINI_API_KEY) {
+                    return '(デフォルト・変更推奨)';
+                }
+                // 最初の8文字と最後の4文字を残してマスク
+                return key.substring(0, 8) + '...' + key.substring(key.length - 4);
+            }
+
+            // 選択されたファイル
+            let selectedFile = null;
+            let transcriptionResult = null;
+            let rawTranscriptionText = '';
+            let errorCount = 0;
+            let audioFileDuration = 0; // 音声ファイルの長さ（秒）
+
+            // 設定パネル関連
+            settingsIcon.addEventListener('click', () => {
+                settingsPanel.style.display = settingsPanel.style.display === 'flex' ? 'none' : 'flex';
+            });
+
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsPanel.style.display = 'none';
+            });
+
+            saveSettingsBtn.addEventListener('click', () => {
+                // APIキーが入力されていたら保存、空なら削除（デフォルト値を使用する）
+                if (elevenLabsApiKeyInput.value.trim()) {
+                    localStorage.setItem('elevenLabsApiKey', elevenLabsApiKeyInput.value.trim());
+                    ELEVENLABS_API_KEY = elevenLabsApiKeyInput.value.trim();
+                    elevenLabsKeyDisplay.textContent = `現在設定されているAPIキー: ${maskApiKey(ELEVENLABS_API_KEY)}`;
+                }
+
+                if (geminiApiKeyInput.value.trim()) {
+                    localStorage.setItem('geminiApiKey', geminiApiKeyInput.value.trim());
+                    GEMINI_API_KEY = geminiApiKeyInput.value.trim();
+                    geminiKeyDisplay.textContent = `現在設定されているAPIキー: ${maskApiKey(GEMINI_API_KEY)}`;
+                }
+
+                // モデル選択は常に保存
+                localStorage.setItem('geminiModel', geminiModelSelect.value);
+                GEMINI_MODEL = geminiModelSelect.value;
+
+                // APIキー設定状態を確認して通知を表示/非表示
+                if (!ELEVENLABS_API_KEY || !GEMINI_API_KEY) {
+                    apiNotification.style.display = 'block';
+                } else {
+                    apiNotification.style.display = 'none';
+                }
+
+                alert('設定を保存しました');
+                settingsPanel.style.display = 'none';
+            });
+
+            // エラーコンソール関連
+            errorIcon.addEventListener('click', () => {
+                errorConsole.style.display = errorConsole.style.display === 'flex' ? 'none' : 'flex';
+            });
+
+            closeErrorBtn.addEventListener('click', () => {
+                errorConsole.style.display = 'none';
+            });
+
+            clearErrorsBtn.addEventListener('click', () => {
+                errorMessages.innerHTML = '';
+                errorCount = 0;
+                errorIcon.textContent = '🔍';
+                errorIcon.classList.remove('has-errors');
+            });
+
+            // エラーログ機能
+            function logError(error) {
+                const message = typeof error === 'string' ? error : error.message || '不明なエラー';
+                const stack = error.stack ? `<details><summary>詳細</summary><pre>${error.stack}</pre></details>` : '';
+                
+                const errorElement = document.createElement('div');
+                errorElement.className = 'error-message';
+                errorElement.innerHTML = `
+                    <strong>${new Date().toLocaleTimeString()}</strong>: 
+                    ${message}
+                    ${stack}
+                `;
+                
+                errorMessages.appendChild(errorElement);
+                errorCount++;
+                
+                // エラーアイコンを更新
+                errorIcon.textContent = errorCount.toString();
+                errorIcon.classList.add('has-errors');
+                
+                // エラーがあれば自動的に表示
+                if (errorCount === 1) {
+                    errorConsole.style.display = 'flex';
+                }
+            }
+
+            // オリジナルのconsole.errorをオーバーライド
+            const originalConsoleError = console.error;
+            console.error = function() {
+                // オリジナルのconsole.errorを実行
+                originalConsoleError.apply(console, arguments);
+                
+                // エラーログに記録
+                const args = Array.from(arguments);
+                if (args.length > 0) {
+                    logError(args[0]);
+                }
+            };
+
+            // グローバルエラーハンドラ
+            window.addEventListener('error', event => {
+                logError(event.error || event.message);
+            });
+
+            // ドラッグ&ドロップイベントのセットアップ
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.add('active');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.remove('active');
+                });
+            });
+
+            // ファイルドロップ時の処理
+            dropArea.addEventListener('drop', handleDrop);
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length) {
+                    handleFiles(files[0]);
+                }
+            }
+
+            // ドロップエリアのクリックでもファイル選択できるようにする
+            dropArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // 通常のファイル選択時の処理
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleFiles(e.target.files[0]);
+                }
+            });
+
+            // ファイル選択の処理
+            function handleFiles(file) {
+                selectedFile = file;
+                
+                // 音声ファイルかどうかチェック
+                if (!file.type.startsWith('audio/')) {
+                    alert('音声ファイルを選択してください。');
+                    selectedFile = null;
+                    return;
+                }
+
+                // APIキーが設定されているか確認
+                if (!ELEVENLABS_API_KEY || !GEMINI_API_KEY) {
+                    alert('APIキーが設定されていません。設定パネルでAPIキーを設定してください。');
+                    settingsPanel.style.display = 'flex';
+                    return;
+                }
+
+                // オーディオファイルの長さを取得
+                getAudioDuration(file).then(duration => {
+                    audioFileDuration = duration;
+                    // ファイル情報の表示
+                    fileInfo.style.display = 'block';
+                    fileInfo.textContent = `ファイル名: ${file.name} | サイズ: ${formatFileSize(file.size)} | 形式: ${file.type} | 長さ: ${formatTime(duration)}`;
+                    
+                    // 文字起こしボタンを有効化
+                    transcribeBtn.disabled = false;
+                    transcribeBtn.textContent = '文字起こし開始';
+                    // 新しいファイルが選択されたので、前の結果をクリア
+                    resultSection.style.display = 'none';
+                    rawTranscriptionText = '';
+                }).catch(error => {
+                    console.error('オーディオ長さ取得エラー:', error);
+                    // 長さが取得できなくても続行可能
+                    fileInfo.style.display = 'block';
+                    fileInfo.textContent = `ファイル名: ${file.name} | サイズ: ${formatFileSize(file.size)} | 形式: ${file.type}`;
+                    transcribeBtn.disabled = false;
+                    transcribeBtn.textContent = '文字起こし開始';
+                    resultSection.style.display = 'none';
+                    rawTranscriptionText = '';
+                });
+            }
+
+            // オーディオファイルの長さを取得
+            function getAudioDuration(file) {
+                return new Promise((resolve, reject) => {
+                    const audio = new Audio();
+                    audio.addEventListener('loadedmetadata', () => {
+                        // iOSやSafariではdurationが無限大になることがあるので、対策
+                        if (isFinite(audio.duration)) {
+                            resolve(audio.duration);
+                        } else {
+                            reject(new Error('音声の長さを取得できませんでした'));
+                        }
+                    });
+                    audio.addEventListener('error', () => {
+                        reject(new Error('音声ファイルの読み込みに失敗しました'));
+                    });
+                    
+                    // File オブジェクトからURLを作成
+                    const url = URL.createObjectURL(file);
+                    audio.src = url;
+                });
+            }
+
+            // 残り時間表示の更新
+            function updateTimeEstimate(startTime, estimatedTotalTime) {
+                const updateTimer = setInterval(() => {
+                    const elapsed = (Date.now() - startTime) / 1000; // 経過時間（秒）
+                    const remaining = Math.max(0, estimatedTotalTime - elapsed);
+                    
+                    if (remaining <= 0 || !processingSection.style.display || processingSection.style.display === 'none') {
+                        clearInterval(updateTimer);
+                        timeInfo.textContent = '';
+                        return;
+                    }
+                    
+                    timeInfo.textContent = `推定残り時間: ${formatTime(remaining)}`;
+                }, 1000);
+                
+                return updateTimer;
+            }
+
+            // 秒を「○分○秒」形式にフォーマット
+            function formatTime(seconds) {
+                seconds = Math.round(seconds);
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                
+                if (minutes > 0) {
+                    return `${minutes}分${remainingSeconds}秒`;
+                } else {
+                    return `${remainingSeconds}秒`;
+                }
+            }
+
+            // ファイルサイズの表示形式
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' bytes';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+                else return (bytes / 1048576).toFixed(2) + ' MB';
+            }
+
+            // 文字起こしボタンのイベント
+            transcribeBtn.addEventListener('click', handleTranscription);
+            
+            // 整理を再実行するボタンのイベント
+            reorganizeBtn.addEventListener('click', () => {
+                if (rawTranscriptionText) {
+                    // ボタンを非表示、スピナーを表示
+                    reorganizeBtn.style.display = 'none';
+                    reorganizeSpinner.style.display = 'inline-block';
+                    organizeText(rawTranscriptionText);
+                }
+            });
+
+            // 文字起こし処理
+            async function handleTranscription() {
+                if (!selectedFile) return;
+
+                // APIキーが設定されているか確認
+                if (!ELEVENLABS_API_KEY || !GEMINI_API_KEY) {
+                    alert('APIキーが設定されていません。設定パネルでAPIキーを設定してください。');
+                    settingsPanel.style.display = 'flex';
+                    return;
+                }
+
+                // 処理開始時間
+                const startTime = Date.now();
+                
+                // 処理中UIの表示
+                processingSection.style.display = 'block';
+                transcribeBtn.disabled = true;
+                progressBar.style.width = '0%';
+                statusText.textContent = '文字起こしを開始しています...';
+                resultSection.style.display = 'none';
+
+                try {
+                    // 音声の長さに基づいて、推定処理時間を計算
+                    // 平均して、音声の長さの約1.5倍の秒数がかかると仮定
+                    const estimatedProcessingTime = audioFileDuration * 1.5;
+                    
+                    // 残り時間表示の初期化
+                    if (audioFileDuration > 0) {
+                        timeInfo.textContent = `推定残り時間: ${formatTime(estimatedProcessingTime)}`;
+                        // 残り時間の更新を開始
+                        const timerUpdate = updateTimeEstimate(startTime, estimatedProcessingTime);
+                    }
+
+                    // プログレスバーのアニメーション
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        // 音声の長さに基づいて進行状況を調整
+                        const elapsedTime = (Date.now() - startTime) / 1000;
+                        if (audioFileDuration > 0) {
+                            // 経過時間と推定処理時間に基づいて進行状況を計算
+                            progress = (elapsedTime / estimatedProcessingTime) * 100;
+                        } else {
+                            // 音声の長さが不明な場合は、既存のランダム進行で
+                            progress += Math.random() * 3;
+                        }
+                        
+                        if (progress > 90) progress = 90; // 90%で止めておく
+                        progressBar.style.width = `${progress}%`;
+                        
+                        // 進行状況によってステータステキストを変更
+                        if (progress < 30) {
+                            statusText.textContent = '音声データを処理中...';
+                        } else if (progress < 60) {
+                            statusText.textContent = '文字起こし中...';
+                        } else {
+                            statusText.textContent = '文字起こしデータを整理中...';
+                        }
+                    }, 800);
+
+                    // FormDataの作成
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    formData.append('model_id', 'scribe_v1');  // モデルID指定
+                    formData.append('language_code', 'ja');    // 言語コード明示的に指定
+                    formData.append('diarize', 'true');        // 話者識別を有効に
+
+                    // ElevenLabs API 呼び出し
+                    const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+                        method: 'POST',
+                        headers: {
+                            'xi-api-key': ELEVENLABS_API_KEY
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('文字起こし処理中にエラーが発生しました (ステータスコード: ' + response.status + ')');
+                    }
+
+                    // ElevenLabsのレスポンスを解析
+                    const result = await response.json();
+                    transcriptionResult = result;
+                    console.log("ElevenLabs APIレスポンス:", result);
+
+                    // 文字起こしテキストの抽出
+                    let transcriptionText = '';
+                    
+                    // レスポンス構造に応じた処理
+                    if (result.utterances && result.utterances.length > 0) {
+                        // utterancesがあれば、それを使用（話者識別情報を含む）
+                        result.utterances.forEach((utterance, index) => {
+                            // 話者IDを数字からアルファベットに変換（数値が存在する場合のみ）
+                            const speakerId = utterance.speaker !== undefined && utterance.speaker !== null ? 
+                                numberToAlphabet(utterance.speaker) : 'X';
+                            
+                            // 話者タグをHTMLでスタイリング
+                            transcriptionText += `<span class="speaker-tag">話者${speakerId}</span>${utterance.text}\n\n`;
+                        });
+                    } else if (result.words && result.words.length > 0) {
+                        // wordsがあれば、wordsから話者情報を使用
+                        let currentSpeaker = null;
+                        let currentText = '';
+                        
+                        result.words.forEach((word, idx) => {
+                            // speaker_idが未定義または文字列のXの場合は1としてアルファベットAに変換
+                            const speakerId = word.speaker_id !== undefined && word.speaker_id !== null && 
+                                            word.speaker_id !== 'X' ? word.speaker_id : 1;
+                            
+                            if (currentSpeaker === null) {
+                                currentSpeaker = speakerId;
+                                currentText = word.text;
+                            } else if (speakerId !== currentSpeaker) {
+                                // 話者が変わったら出力
+                                const speakerTag = numberToAlphabet(currentSpeaker);
+                                transcriptionText += `<span class="speaker-tag">話者${speakerTag}</span>${currentText}\n\n`;
+                                currentSpeaker = speakerId;
+                                currentText = word.text;
+                            } else {
+                                currentText += word.text;
+                            }
+                        });
+                        
+                        // 最後の話者のテキストを出力
+                        if (currentText) {
+                            const speakerTag = numberToAlphabet(currentSpeaker);
+                            transcriptionText += `<span class="speaker-tag">話者${speakerTag}</span>${currentText}\n\n`;
+                        }
+                    } else if (result.text) {
+                        // 単純なテキストの場合（話者識別なし）
+                        transcriptionText = `<span class="speaker-tag">話者A</span>${result.text}`;
+                    } else if (result.transcription) {
+                        // 以前のバージョン用
+                        transcriptionText = formatTranscriptionWithSpeakers(result.transcription);
+                    } else {
+                        throw new Error('文字起こしデータが適切な形式ではありません');
+                    }
+                    
+                    // 生のテキスト（HTMLタグなし）を保存
+                    rawTranscriptionText = transcriptionText.replace(/<[^>]+>/g, '');
+                    
+                    // フロントエンドに表示（HTML）
+                    rawTranscription.innerHTML = transcriptionText;
+                    
+                    // プログレスバーを100%にする
+                    clearInterval(progressInterval);
+                    progressBar.style.width = '100%';
+                    statusText.textContent = '文字起こし完了！テキストを整理しています...';
+
+                    // Gemini APIでテキストを整理
+                    await organizeText(rawTranscriptionText);
+
+                    // 結果表示
+                    resultSection.style.display = 'block';
+                    processingSection.style.display = 'none';
+                    
+                    // 文字起こしボタンの表示を更新
+                    transcribeBtn.disabled = false;
+                    transcribeBtn.textContent = '新規文字起こし';
+                    
+                } catch (error) {
+                    console.error('エラー:', error);
+                    alert(`エラーが発生しました: ${error.message}`);
+                    processingSection.style.display = 'none';
+                    transcribeBtn.disabled = false;
+                }
+            }
+
+            // 数字をアルファベットに変換（1→A, 2→B, ...）
+            function numberToAlphabet(num) {
+                if (num === undefined || num === null) {
+                    return 'A'; // 未定義の場合はAを返す
+                }
+                
+                if (typeof num === 'string') {
+                    // 数字文字列でない場合（例: 'X'）は、Aを返す
+                    if (isNaN(parseInt(num, 10))) return 'A';
+                    // 数字文字列の場合は数値に変換
+                    num = parseInt(num, 10);
+                }
+                
+                // 0または未設定の場合は1とみなす
+                if (!num) num = 1;
+                
+                // 1-26の範囲でA-Zに変換
+                if (num >= 1 && num <= 26) {
+                    return String.fromCharCode(64 + num); // 65がAのコード、64+1=65
+                } else {
+                    return num.toString(); // 範囲外ならそのまま数字で返す
+                }
+            }
+
+            // Gemini APIでテキストを整理
+            async function organizeText(text) {
+                try {
+                    statusText.textContent = 'テキストを整理中...';
+                    processingSection.style.display = 'block';
+                    progressBar.style.width = '30%';
+                    
+                    // 残り時間表示を初期化
+                    const startTime = Date.now();
+                    const estimatedProcessingTime = 20; // 約20秒と仮定
+                    timeInfo.textContent = `推定残り時間: ${formatTime(estimatedProcessingTime)}`;
+                    const timerUpdate = updateTimeEstimate(startTime, estimatedProcessingTime);
+                    
+                    // Gemini APIに送信するデータ
+                    const promptText = `
+以下は音声の文字起こしデータです。日本語で応答してください：
+
+${text}
+
+${promptInput.value}
+`;
+                    
+                    // プログレスバーを更新
+                    progressBar.style.width = '50%';
+                    
+                    // どのGeminiモデルを使うか確認
+                    const modelName = GEMINI_MODEL;
+                    
+                    // モデル名をベースにしたエンドポイント
+                    let apiEndpoint;
+                    if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-1.5-pro' || modelName === 'gemini-1.0-pro') {
+                        // 旧バージョンのモデルはv1beta
+                        apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+                    } else {
+                        // 新しいバージョンはv1
+                        apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent`;
+                    }
+                    
+                    // Gemini APIリクエスト
+                    const requestData = {
+                        contents: [
+                            {
+                                parts: [
+                                    { text: promptText }
+                                ]
+                            }
+                        ],
+                        generationConfig: {
+                            temperature: 0.2,
+                            topK: 40,
+                            topP: 0.95,
+                            maxOutputTokens: 8192,
+                        }
+                    };
+
+                    // プログレスバーを更新
+                    progressBar.style.width = '70%';
+
+                    // Gemini APIを呼び出し
+                    const response = await fetch(
+                        `${apiEndpoint}?key=${GEMINI_API_KEY}`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(requestData)
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error('テキスト整理中にエラーが発生しました (ステータスコード: ' + response.status + ')');
+                    }
+
+                    const result = await response.json();
+                    console.log("Gemini APIレスポンス:", result);
+                    
+                    // プログレスバーを更新
+                    progressBar.style.width = '100%';
+                    
+                    // レスポンスからテキスト部分を抽出 (最新のレスポンス形式に対応)
+                    if (result && 
+                        result.candidates && 
+                        result.candidates[0] && 
+                        result.candidates[0].content && 
+                        result.candidates[0].content.parts && 
+                        result.candidates[0].content.parts[0]) {
+                        organizedText.textContent = result.candidates[0].content.parts[0].text;
+                        
+                        // 整理済みタブをアクティブにする
+                        tabButtons.forEach(btn => btn.classList.remove('active'));
+                        tabPanes.forEach(pane => pane.classList.remove('active'));
+                        document.querySelector('.tab-btn[data-target="organizedTab"]').classList.add('active');
+                        document.getElementById('organizedTab').classList.add('active');
+                    } else {
+                        throw new Error('APIレスポンスの形式が予期しないものでした');
+                    }
+                    
+                    // 処理セクションを非表示
+                    processingSection.style.display = 'none';
+                    
+                    // 再実行ボタンを元に戻す
+                    reorganizeBtn.style.display = 'block';
+                    reorganizeSpinner.style.display = 'none';
+                    
+                } catch (error) {
+                    console.error('テキスト整理エラー:', error);
+                    organizedText.textContent = `テキスト整理中にエラーが発生しました: ${error.message}\n\n元のテキストをそのまま使用してください。`;
+                    processingSection.style.display = 'none';
+                    reorganizeBtn.style.display = 'block';
+                    reorganizeSpinner.style.display = 'none';
+                }
+            }
+
+            // 話者識別がある場合のテキスト整形（旧バージョン互換用）
+            function formatTranscriptionWithSpeakers(transcription) {
+                if (Array.isArray(transcription)) {
+                    // 話者ごとのセグメントを整形して結合
+                    let formattedText = '';
+                    transcription.forEach(segment => {
+                        // 話者IDを数字からアルファベットに変換
+                        const speakerId = segment.speaker !== undefined && segment.speaker !== null ? 
+                            numberToAlphabet(segment.speaker) : 'A';
+                        formattedText += `<span class="speaker-tag">話者${speakerId}</span>${segment.text}\n\n`;
+                    });
+                    return formattedText;
+                }
+                return `<span class="speaker-tag">話者A</span>${transcription.toString()}`;
+            }
+
+            // タブ切り替え機能
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // アクティブなクラスを全て削除
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabPanes.forEach(pane => pane.classList.remove('active'));
+                    
+                    // クリックされたボタンとそれに対応するペインをアクティブに
+                    button.classList.add('active');
+                    const targetId = button.getAttribute('data-target');
+                    document.getElementById(targetId).classList.add('active');
+                });
+            });
+
+            // コピーボタン機能
+            copyRawBtn.addEventListener('click', () => {
+                // HTMLタグを除去してプレーンテキストとしてコピー
+                const plainText = rawTranscription.textContent;
+                copyToClipboard(plainText);
+                showCopyFeedback(copyRawBtn);
+            });
+
+            copyOrganizedBtn.addEventListener('click', () => {
+                copyToClipboard(organizedText.textContent);
+                showCopyFeedback(copyOrganizedBtn);
+            });
+
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text)
+                    .catch(err => {
+                        console.error('コピーに失敗しました:', err);
+                        alert('コピーに失敗しました: ' + err);
+                    });
+            }
+
+            function showCopyFeedback(button) {
+                const originalText = button.textContent;
+                button.textContent = 'コピー済み！';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            }
+
+            // 保存ボタン機能
+            saveRawBtn.addEventListener('click', () => {
+                // HTMLタグを除去してプレーンテキストとして保存
+                const plainText = rawTranscription.textContent;
+                saveTextToFile(plainText, '文字起こし結果.txt');
+            });
+
+            saveOrganizedBtn.addEventListener('click', () => {
+                saveTextToFile(organizedText.textContent, '整理済み文字起こし.txt');
+            });
+
+            function saveTextToFile(text, filename) {
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            // プロンプト入力後にGemini APIで再整理
+            let debounceTimer;
+            promptInput.addEventListener('change', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    if (rawTranscriptionText) {
+                        reorganizeBtn.style.display = 'none';
+                        reorganizeSpinner.style.display = 'inline-block';
+                        organizeText(rawTranscriptionText);
+                    }
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>
